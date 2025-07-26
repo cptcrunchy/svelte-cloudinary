@@ -24,9 +24,15 @@
   "engines": {
     "pnpm": "^9.0.0",
     "npm": "forbidden, use pnpm",
-    "node": ">=18"
+    "node": ">=20"
   },
   "packageManager": "pnpm@9.11.0",
+  "pnpm": {
+    "overrides": {
+      "@astrojs/mdx": "^4.0.0",
+      "svelte": "^5.36.17"
+    }
+  },
   "volta": {
     "node": "18.20.4",
     "pnpm": "9.11.0"
