@@ -23,31 +23,56 @@
 	```
 -->
 
-<script context="module" lang="ts">
+<script lang="ts" module>
 	import type { ImageProps } from '@unpic/svelte';
 	import type {
 		ConfigOptions,
 		ImageOptions,
 	} from '@cloudinary-util/url-loader';
 
-	export type CldImageProps = Omit<ImageProps, 'width' | 'height'> &
-		Omit<ImageOptions, 'width' | 'height'> & {
-			/**
-			 * Overrides for the global Cloudinary config.
-			 * @see https://svelte.cloudinary.dev/config
-			 */
-			config?: ConfigOptions;
+	export interface CldImageProps
+		extends Omit<ImageOptions, 'width' | 'height'> {
+		/**
+		 * Overrides for the global Cloudinary config.
+		 * @see https://svelte.cloudinary.dev/config
+		 */
+		config?: ConfigOptions;
 
-			/**
-			 * The target width of the image
-			 */
-			width: string | number;
+		/**
+		 * The target width of the image
+		 */
+		width: string | number;
 
-			/**
-			 * The target height of the image
-			 */
-			height: string | number;
-		};
+		/**
+		 * The target height of the image
+		 */
+		height: string | number;
+
+		/**
+		 * The source of the image (Cloudinary public ID or URL)
+		 */
+		src: string;
+
+		/**
+		 * Alt text for the image
+		 */
+		alt: string;
+
+		/**
+		 * Event handler for when image loads successfully
+		 */
+		onload?: (event: Event) => void;
+
+		/**
+		 * Event handler for when image fails to load
+		 */
+		onerror?: (event: Event) => void;
+
+		/**
+		 * Additional HTML img attributes
+		 */
+		[key: string]: any;
+	}
 </script>
 
 <script lang="ts">
@@ -55,12 +80,19 @@
 	import { createLoader } from '../internal/loader';
 	import { Image } from '@unpic/svelte';
 
-	type $$Props = CldImageProps;
+	interface Props extends CldImageProps {}
 
-	$: ({ width, height, layout, ...props } = $$props as CldImageProps);
-	$: transformer = createLoader($$props as CldImageProps);
+	let { width, height, layout, onload, onerror, ...restProps }: Props =
+		$props();
 
-	let key = 0;
+	// Create transformer using derived state
+	let transformer = $derived(
+		createLoader({ width, height, layout, ...restProps } as CldImageProps),
+	);
+
+	// Reactive key for forcing image updates
+	let key = $state(0);
+
 	async function handleError(event: Event) {
 		console.warn(
 			'[svelte-cloudinary]',
@@ -81,10 +113,22 @@
 			key++;
 		} else {
 			console.warn('[svelte-cloudinary] Failed to load image:', {
-				src: props.src,
+				src: restProps.src,
 				error: result.error,
 				status: result.status,
 			});
+		}
+
+		// Call the original error handler if provided
+		if (onerror) {
+			onerror(event);
+		}
+	}
+
+	function handleLoad(event: Event) {
+		// Call the original load handler if provided
+		if (onload) {
+			onload(event);
 		}
 	}
 </script>
@@ -93,10 +137,9 @@
 	<Image
 		transformer={(options) => transformer(options)}
 		cdn="cloudinary"
-		on:load
-		on:error={handleError}
-		on:error
+		onload={handleLoad}
+		onerror={handleError}
 		width={+width}
 		height={+height}
-		{...props}></Image>
+		{...restProps} />
 {/key}
