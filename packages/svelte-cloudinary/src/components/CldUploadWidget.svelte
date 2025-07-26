@@ -1,6 +1,6 @@
-<!--
-	@component
-	
+<!-- 
+  @component
+  
 	This component provides an API for rendering the Cloudinary Upload Widget.
 	It won't render anything on it's own so must have a button nested
 	which calls `open()`.
@@ -278,7 +278,7 @@
 	const widgetId = `widget_${Math.random().toString(36).substr(2, 9)}`;
 	let isDestroyed = $state(false);
 
-	l; // Create a stable reference to current widget instance
+	// Create a stable reference to current widget instance
 	let currentWidgetRef: { current: CloudinaryUploadWidget | undefined } = {
 		current: undefined,
 	};
@@ -303,18 +303,19 @@
 		onUpload,
 	});
 
-	const instanceMethod = {
+	const instanceMethods = {
 		close: (...args: any[]) => currentWidgetRef.current?.close(...args),
 		destroy: async (...args: any[]) => {
-      if (currentWidgetRef.current && !isDestroyed) {
-        isDestroyed = true;
-        await currentWidgetRef.current?.destroy(...args);
-        currentWidgetRef.current = undefined;
-        widget = undefined;
-      }
-    },
+			if (currentWidgetRef.current && !isDestroyed) {
+				isDestroyed = true;
+				await currentWidgetRef.current?.destroy(...args);
+				currentWidgetRef.current = undefined;
+				widget = undefined;
+			}
+		},
 		hide: () => currentWidgetRef.current?.hide(),
-		isDestroyed: () => (isDestroyed || currentWidgetRef.current?.isDestroyed()) ?? true,
+		isDestroyed: () =>
+			(isDestroyed || currentWidgetRef.current?.isDestroyed()) ?? true,
 		isMinimized: () => currentWidgetRef.current?.isMinimized() ?? false,
 		isShowing: () => currentWidgetRef.current?.isShowing() ?? false,
 		minimize: () => currentWidgetRef.current?.minimize(),
@@ -322,12 +323,22 @@
 		update: (...args: any[]) => currentWidgetRef.current?.update(...args),
 		open: (...args: any[]) => {
 			if (!currentWidgetRef.current || isDestroyed) {
-        createWidget(config);
-      } 
-			currentWidgetRef.current?.open(...args);
-      if (currentWidgetRef.current) {
-        events.onOpen?.(currentWidgetRef.current);
-      }
+				createWidget(config);
+			}
+			// Filter out any Event objects from the arguments to prevent DataCloneError
+			const sanitizedArgs = args
+				.map((arg) => {
+					if (arg instanceof Event) {
+						return undefined; // Remove event objects
+					}
+					return arg;
+				})
+				.filter((arg) => arg !== undefined);
+
+			currentWidgetRef.current?.open(...sanitizedArgs);
+			if (currentWidgetRef.current) {
+				events.onOpen?.(currentWidgetRef.current);
+			}
 		},
 	};
 
@@ -339,7 +350,7 @@
 		>
 	>;
 
-	function createWidget(config: $$Props['config']) {
+	function createWidget(config: Props['config']) {
 		// Always destroy previous widget before creating new one
 		if (currentWidgetRef.current && !isDestroyed) {
 			instanceMethods.destroy();
@@ -361,11 +372,11 @@
 			cfg.config,
 		);
 
-    // Create callback with proper closure isolation
+		// Create callback with proper closure isolation
 		const callback = generateUploadWidgetResultCallback({
 			onError: (error) => {
-        // Only handle errors for THIS widget instance
-        if (isDestroyed) return;
+				// Only handle errors for THIS widget instance
+				if (isDestroyed) return;
 
 				const message = error
 					? typeof error == 'string'
@@ -379,8 +390,8 @@
 				});
 			},
 			onResult: (results) => {
-        // Only handle results for THIS widget instance
-        if (isDestroyed || !currentWidgetRef.current) return;
+				// Only handle results for THIS widget instance
+				if (isDestroyed || !currentWidgetRef.current) return;
 
 				if (typeof results?.event !== 'string') return;
 
@@ -414,23 +425,26 @@
 			},
 		});
 
-    // Create widget and immediately assign to current reference
-    const newWidget = window.cloudinary?.createUploadWidget?.(
+		// Create widget and immediately assign to current reference
+		const newWidget = window.cloudinary?.createUploadWidget?.(
 			uploadOptions,
 			callback,
 		);
 
-    if (newWidget) {
-      currentWidgetRef.current = newWidget;
-      widget = newWidget;
-      isDestroyed = false;
-    }
+		if (newWidget) {
+			currentWidgetRef.current = newWidget;
+			widget = newWidget;
+			isDestroyed = false;
+		}
 	}
 
-  // Svelte 5 effect to handle config changes
-  let previousConfig: typeof config;
-  $effect(() =>  {
-		if (loaded && JSON.stringify(config) !== JSON.stringify(previousConfig)) {
+	// Svelte 5 effect to handle config changes
+	let previousConfig: typeof config;
+	$effect(() => {
+		if (
+			loaded &&
+			JSON.stringify(config) !== JSON.stringify(previousConfig)
+		) {
 			previousConfig = config;
 			if (currentWidgetRef.current) {
 				instanceMethods.destroy();
@@ -439,8 +453,8 @@
 		}
 	});
 
-  // Computed cloudinary value
-  let cloudinary = $derived((loaded && window.cloudinary) || null);
+	// Computed cloudinary value
+	let cloudinary = $derived((loaded && window.cloudinary) || null);
 
 	onMount(() => {
 		loadScript({
@@ -451,7 +465,7 @@
 			onError() {
 				events.onError?.('Unable to load script', {
 					...instanceMethods,
-					widget: currentWidgetRef.current
+					widget: currentWidgetRef.current,
 				});
 			},
 		});
@@ -462,9 +476,11 @@
 	});
 </script>
 
-{@render children({
-  widget,
-  cloudinary,
-  isLoading: !loaded,
-  ...instanceMethods
-})}
+{#if children}
+	{@render children({
+		widget,
+		cloudinary,
+		isLoading: !loaded,
+		...instanceMethods,
+	})}
+{/if}

@@ -16,7 +16,7 @@
 	```
 -->
 
-<script context="module" lang="ts">
+<script module lang="ts">
 	import type { CloudinaryVideoPlayer } from '@cloudinary-util/types';
 	import type {
 		ConfigOptions,

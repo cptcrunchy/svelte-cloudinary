@@ -3,7 +3,6 @@ import { VERSION as SVELTE_VERSION } from 'svelte/compiler';
 import { setContext, getContext } from 'svelte';
 import { klona } from './internal/klona';
 import { defu } from 'defu';
-import { BROWSER } from 'esm-env';
 import type {
 	AnalyticsOptions,
 	ConfigOptions,
@@ -67,7 +66,7 @@ export function mergeGlobalConfig(
 ) {
 	const globalConfig = getGlobalConfig();
 	const envConfig = getEnvConfig();
-
+ 
 	const config = defu(
 		// Overrides have the highest priorty
 		klona(configOverride),
@@ -75,8 +74,8 @@ export function mergeGlobalConfig(
 		// Merge the global config `cloudName` and `apiKey`
 		{
 			cloud: {
-				cloudName: globalConfig?.cloud?.cloudName,
-				apiKey: globalConfig?.cloud?.apiKey,
+				cloudName: globalConfig?.cloudName,
+				apiKey: globalConfig?.apiKey,
 			},
 		},
 		// Merge the global config `cloud` and `url` properties
