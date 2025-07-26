@@ -30,54 +30,33 @@ export interface GlobalCloudinaryConfig extends ConfigOptions {
 	apiKey?: string;
 }
 
-// Helper function to safely get environment variables
-function getEnvVar(key: string): string | undefined {
-	if (BROWSER) {
-		// In browser, try to get from window or globalThis
-		const globalEnv = (globalThis as any).__ENV__ || (window as any).__ENV__;
-		return globalEnv?.[key];
-	}
-	
-	// In Node.js/SSR
-	if (typeof process !== 'undefined' && process.env) {
-		return process.env[key];
-	}
-	
-	// Fallback: try import.meta.env if available (Vite)
-	try {
-		return (import.meta as any).env?.[key];
-	} catch {
-		return undefined;
-	}
-}
-
 function getEnvConfig() {
 	return {
 		cloud: {
 			cloudName:
-				getEnvVar('VITE_CLOUDINARY_CLOUD_NAME') ||
-				getEnvVar('VITE_PUBLIC_CLOUDINARY_CLOUD_NAME') ||
-				getEnvVar('CLOUDINARY_CLOUD_NAME') ||
-				getEnvVar('PUBLIC_CLOUDINARY_CLOUD_NAME'),
+        import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME ||
+				import.meta.env?.VITE_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+				import.meta.env?.CLOUDINARY_CLOUD_NAME ||
+				import.meta.env?.PUBLIC_CLOUDINARY_CLOUD_NAME,
 			apiKey:
-				getEnvVar('VITE_CLOUDINARY_API_KEY') ||
-				getEnvVar('VITE_PUBLIC_CLOUDINARY_API_KEY') ||
-				getEnvVar('CLOUDINARY_API_KEY') ||
-				getEnvVar('PUBLIC_CLOUDINARY_API_KEY'),
+				import.meta.env?.VITE_CLOUDINARY_API_KEY ||
+				import.meta.env?.VITE_PUBLIC_CLOUDINARY_API_KEY ||
+				import.meta.env?.CLOUDINARY_API_KEY ||
+				import.meta.env?.PUBLIC_CLOUDINARY_API_KEY,
 		},
 		url: {
 			privateCdn: !!(
-				getEnvVar('VITE_CLOUDINARY_PRIVATE_CDN') ||
-				getEnvVar('CLOUDINARY_PRIVATE_CDN')
+				import.meta.env?.VITE_CLOUDINARY_PRIVATE_CDN ||
+				import.meta.env?.CLOUDINARY_PRIVATE_CDN
 			),
 			secureDistribution:
-				getEnvVar('VITE_CLOUDINARY_SECURE_DISTRIBUTION') ||
-				getEnvVar('CLOUDINARY_SECURE_DISTRIBUTION'),
+				import.meta.env?.VITE_CLOUDINARY_SECURE_DISTRIBUTION ||
+				import.meta.env?.CLOUDINARY_SECURE_DISTRIBUTION,
 		},
 		extra: {
 			uploadPreset:
-				getEnvVar('VITE_CLOUDINARY_UPLOAD_PRESET') ||
-				getEnvVar('CLOUDINARY_UPLOAD_PRESET'),
+				import.meta.env?.VITE_CLOUDINARY_UPLOAD_PRESET ||
+				import.meta.env?.CLOUDINARY_UPLOAD_PRESET,
 		},
 	};
 }
@@ -96,8 +75,8 @@ export function mergeGlobalConfig(
 		// Merge the global config `cloudName` and `apiKey`
 		{
 			cloud: {
-				cloudName: globalConfig?.cloudName,
-				apiKey: globalConfig?.apiKey,
+				cloudName: globalConfig?.cloud?.cloudName,
+				apiKey: globalConfig?.cloud?.apiKey,
 			},
 		},
 		// Merge the global config `cloud` and `url` properties
