@@ -17,9 +17,13 @@ export default defineConfig({
 			title: 'Svelte Cloudinary',
 			description:
 				'High-performance image and video delivery and uploading at scale in Svelte powered by Cloudinary.',
-			social: {
-				github: 'https://github.com/cloudinary-community/svelte-cloudinary',
-			},
+			social: [
+				{
+					icon: 'github',
+          label: 'Github',
+					href: 'https://github.com/cloudinary-community/svelte-cloudinary',
+				},
+      ],
 			favicon: '/favicon.ico',
 			customCss: ['./src/theme.css'],
 			editLink: {
