@@ -16,7 +16,7 @@
 	```
 -->
 
-<script module lang="ts">
+<script lang="ts" module>
 	import type { CloudinaryVideoPlayer } from '@cloudinary-util/types';
 	import type {
 		ConfigOptions,
@@ -94,65 +94,84 @@
 
 	const PLAYER_VERSION = '1.11.1';
 
-	type $$Props = CldVideoPlayerProps;
-	$: ({ config, id, ...videoPlayerOptions } = $$props as CldVideoPlayerProps);
+	interface Props extends CldVideoPlayerProps {}
 
-	$: options = getVideoPlayerOptions(
-		videoPlayerOptions,
-		mergeGlobalConfig(config).config,
+	let {
+		config,
+		id,
+		player = $bindable(),
+		videoElement = $bindable(),
+		onError,
+		onDataLoad,
+		onMetadataLoad,
+		onPause,
+		onPlay,
+		onEnded,
+		...videoPlayerOptions
+	}: Props = $props();
+
+	// Reactive options calculation
+	let options = $derived(
+		getVideoPlayerOptions(
+			videoPlayerOptions,
+			mergeGlobalConfig(config).config,
+		),
 	);
 
-	let loaded =
-		typeof window != 'undefined' && !!window.cloudinary?.videoPlayer;
+	// Track loading state
+	let loaded = $state(
+		typeof window != 'undefined' && !!window.cloudinary?.videoPlayer,
+	);
 
-	export let videoElement: HTMLVideoElement | undefined = undefined;
-	export let player: CloudinaryVideoPlayer | undefined = undefined;
+	// Effect to initialize player when dependencies are ready
+	$effect(() => {
+		if (videoElement && loaded && !player) {
+			player = window.cloudinary?.videoPlayer?.(videoElement, options);
 
-	$: if (videoElement && loaded && !player) {
-		player = window.cloudinary?.videoPlayer?.(videoElement, options);
+			// Set up event listeners
+			player?.on('error', () =>
+				onError?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
 
-		player?.on('error', () =>
-			videoPlayerOptions.onError?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
+			player?.on('loadeddata', () =>
+				onDataLoad?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
 
-		player?.on('loadeddata', () =>
-			videoPlayerOptions.onDataLoad?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
+			player?.on('loadedmetadata', () =>
+				onMetadataLoad?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
 
-		player?.on('loadedmetadata', () =>
-			videoPlayerOptions.onMetadataLoad?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
+			player?.on('pause', () =>
+				onPause?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
 
-		player?.on('pause', () =>
-			videoPlayerOptions.onPause?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
+			player?.on('play', () =>
+				onPlay?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
 
-		player?.on('play', () =>
-			videoPlayerOptions.onPlay?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
-
-		player?.on('ended', () =>
-			videoPlayerOptions.onEnded?.({
-				player: player!,
-				video: videoElement!,
-			}),
-		);
-	}
+			player?.on('ended', () =>
+				onEnded?.({
+					player: player!,
+					video: videoElement!,
+				}),
+			);
+		}
+	});
 
 	onMount(() => {
 		loadScript({
