@@ -3,6 +3,7 @@ import { VERSION as SVELTE_VERSION } from 'svelte/compiler';
 import { setContext, getContext } from 'svelte';
 import { klona } from './internal/klona';
 import { defu } from 'defu';
+import { BROWSER } from 'esm-env';
 import type {
 	AnalyticsOptions,
 	ConfigOptions,
@@ -29,23 +30,54 @@ export interface GlobalCloudinaryConfig extends ConfigOptions {
 	apiKey?: string;
 }
 
+// Helper function to safely get environment variables
+function getEnvVar(key: string): string | undefined {
+	if (BROWSER) {
+		// In browser, try to get from window or globalThis
+		const globalEnv = (globalThis as any).__ENV__ || (window as any).__ENV__;
+		return globalEnv?.[key];
+	}
+	
+	// In Node.js/SSR
+	if (typeof process !== 'undefined' && process.env) {
+		return process.env[key];
+	}
+	
+	// Fallback: try import.meta.env if available (Vite)
+	try {
+		return (import.meta as any).env?.[key];
+	} catch {
+		return undefined;
+	}
+}
+
 function getEnvConfig() {
 	return {
 		cloud: {
 			cloudName:
-				import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME ||
-				import.meta.env?.VITE_PUBLIC_CLOUDINARY_CLOUD_NAME,
+				getEnvVar('VITE_CLOUDINARY_CLOUD_NAME') ||
+				getEnvVar('VITE_PUBLIC_CLOUDINARY_CLOUD_NAME') ||
+				getEnvVar('CLOUDINARY_CLOUD_NAME') ||
+				getEnvVar('PUBLIC_CLOUDINARY_CLOUD_NAME'),
 			apiKey:
-				import.meta.env?.VITE_CLOUDINARY_API_KEY ||
-				import.meta.env?.VITE_PUBLIC_CLOUDINARY_API_KEY,
+				getEnvVar('VITE_CLOUDINARY_API_KEY') ||
+				getEnvVar('VITE_PUBLIC_CLOUDINARY_API_KEY') ||
+				getEnvVar('CLOUDINARY_API_KEY') ||
+				getEnvVar('PUBLIC_CLOUDINARY_API_KEY'),
 		},
 		url: {
-			privateCdn: !!import.meta.env?.VITE_CLOUDINARY_PRIVATE_CDN,
-			secureDistribution: import.meta.env
-				?.VITE_CLOUDINARY_SECURE_DISTRIBUTION,
+			privateCdn: !!(
+				getEnvVar('VITE_CLOUDINARY_PRIVATE_CDN') ||
+				getEnvVar('CLOUDINARY_PRIVATE_CDN')
+			),
+			secureDistribution:
+				getEnvVar('VITE_CLOUDINARY_SECURE_DISTRIBUTION') ||
+				getEnvVar('CLOUDINARY_SECURE_DISTRIBUTION'),
 		},
 		extra: {
-			uploadPreset: import.meta.env?.VITE_CLOUDINARY_UPLOAD_PRESET,
+			uploadPreset:
+				getEnvVar('VITE_CLOUDINARY_UPLOAD_PRESET') ||
+				getEnvVar('CLOUDINARY_UPLOAD_PRESET'),
 		},
 	};
 }
