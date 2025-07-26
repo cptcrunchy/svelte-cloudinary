@@ -29,17 +29,22 @@
 		'vignette',
 	] as const;
 
-	let props: CldImageProps = {
+	let props = $state<CldImageProps>({
 		src: 'images/turtle',
 		width: 400,
 		height: 400,
 		alt: '',
-	};
+	});
 
-	let loadingImage = true;
-	$: if (props) loadingImage = true;
+	let loadingImage = $state(true);
 
-	$: svelteCode = generateSvelteCode(props);
+	// Use $effect to watch props changes
+	$effect(() => {
+		if (props) loadingImage = true;
+	});
+
+	// Use $derived for reactive code generation
+	let svelteCode = $derived(generateSvelteCode(props));
 
 	onMount(() => {
 		const gui = new Gooey({
@@ -55,7 +60,7 @@
 					break;
 
 				default:
-					props.src == 'images/turtle';
+					props.src = 'images/turtle';
 					break;
 			}
 		});
@@ -108,7 +113,7 @@
 			effectsFolder.addSwitch(titleCase(effect), false, {
 				value: false,
 				onChange(enabled) {
-					props[effect] = enabled;
+					(props as any)[effect] = enabled;
 				},
 			});
 		}
@@ -118,14 +123,14 @@
 		backgroundFolder.addSwitch('Remove', false, {
 			value: false,
 			onChange(enabled) {
-				props.removeBackground = enabled;
+				(props as any).removeBackground = enabled;
 			},
 		});
 
 		backgroundFolder.addSwitch('Replace', false, {
 			value: false,
 			onChange(enabled) {
-				props.replaceBackground = enabled;
+				(props as any).replaceBackground = enabled;
 			},
 		});
 
@@ -133,13 +138,13 @@
 			value: '',
 			onChange(colour) {
 				colour = colour.trim();
-				props.background = colour.length ? colour : undefined;
+				(props as any).background = colour.length ? colour : undefined;
 			},
 		});
 
 		backgroundFolder.addSelect('Underlay', ['none', 'galaxy'], {
 			onChange(underlay) {
-				props.underlay =
+				(props as any).underlay =
 					underlay.value == 'none'
 						? undefined
 						: `images/${underlay.value}`;
@@ -242,7 +247,7 @@
 </h1>
 
 <CldImage
-	on:load={() => (loadingImage = false)}
+	onload={() => (loadingImage = false)}
 	class={loadingImage ? 'opacity-50 blur-lg transition-all' : ''}
 	{...props} />
 

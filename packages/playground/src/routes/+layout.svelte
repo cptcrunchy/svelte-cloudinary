@@ -1,18 +1,28 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
+	import type { Snippet } from 'svelte';
 	import '../app.postcss';
+
+	interface Props {
+		data: {
+			highlighter: any; // or the proper Shiki type
+		};
+		children: Snippet;
+	}
+
+	let { children }: Props = $props();
 </script>
 
 <div class="flex items-center gap-4 p-4">
-	<a class:text-blue-300={$page.url.pathname == '/'} href="/"> image </a>
-	<a class:text-blue-300={$page.url.pathname == '/widget'} href="/widget">
+	<a class:text-blue-300={page.url.pathname === '/'} href="/"> image </a>
+	<a class:text-blue-300={page.url.pathname === '/widget'} href="/widget">
 		upload widget
 	</a>
-	<a class:text-blue-300={$page.url.pathname == '/player'} href="/player">
+	<a class:text-blue-300={page.url.pathname === '/player'} href="/player">
 		video player
 	</a>
 </div>
 
 <main class="flex flex-col gap-12 mt-16 items-center">
-	<slot />
+	{@render children()}
 </main>
