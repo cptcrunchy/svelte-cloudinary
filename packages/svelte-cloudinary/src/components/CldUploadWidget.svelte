@@ -22,13 +22,14 @@
 	```
 -->
 
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import type {
 		CloudinaryUploadWidgetOptions,
 		CloudinaryUploadWidgetResults,
 		CloudinaryUploadWidgetInstanceMethods,
 		CloudinaryUploadWidget,
 	} from '@cloudinary-util/types';
+	import type { Snippet } from 'svelte';
 
 	/**
 	 * The event that fires when there is a widget related error
@@ -108,6 +109,29 @@
 		 * Options to customise and configure the upload widget.
 		 */
 		options?: CloudinaryUploadWidgetOptions;
+
+		/**
+		 * The snippet to render with widget methods exposed
+		 */
+		children: Snippet<
+			[
+				{
+					widget: CloudinaryUploadWidget | undefined;
+					cloudinary: typeof window.cloudinary | null;
+					isLoading: boolean;
+					open: (...args: any[]) => void;
+					close: (...args: any[]) => void;
+					destroy: (...args: any[]) => Promise<void>;
+					hide: () => void;
+					isDestroyed: () => boolean;
+					isMinimized: () => boolean;
+					isShowing: () => boolean;
+					minimize: () => void;
+					show: () => void;
+					update: (...args: any[]) => void;
+				},
+			]
+		>;
 
 		/**
 		 * Fires when an error occurs uploading.
@@ -218,35 +242,92 @@
 		type ConfigOptions,
 	} from '@cloudinary-util/url-loader';
 
-	type $$Props = CldUploadWidgetProps;
+	interface Props extends CldUploadWidgetProps {}
 
-	$: ({
+	let {
 		uploadPreset,
 		signatureEndpoint,
 		config,
 		options = {},
-		...events
-	} = $$props as $$Props);
+		children,
+		onError,
+		onOpen,
+		onAbort,
+		onBatchCancelled,
+		onClose,
+		onDisplayChanged,
+		onPublicId,
+		onQueuesEnd,
+		onQueuesStart,
+		onRetry,
+		onShowCompleted,
+		onSourceChanged,
+		onSuccess,
+		onTags,
+		onUploadAdded,
+		onUpload,
+	}: Props = $props();
 
-	let loaded =
-		typeof window != 'undefined' && !!window.cloudinary?.createUploadWidget;
+	// Svelte 5 reactive state using runes
+	let loaded = $state(
+		typeof window != 'undefined' && !!window.cloudinary?.createUploadWidget,
+	);
 
-	let widget: CloudinaryUploadWidget | undefined;
+	let widget = $state<CloudinaryUploadWidget | undefined>(undefined);
+	// Generate unique ID for each widget instance to prevent cross-contamination
+	const widgetId = `widget_${Math.random().toString(36).substr(2, 9)}`;
+	let isDestroyed = $state(false);
 
-	const instanceMethods: CloudinaryUploadWidgetInstanceMethods = {
-		close: (...args) => widget?.close(...args),
-		destroy: async (...args) => await widget?.destroy(...args),
-		hide: () => widget?.hide(),
-		isDestroyed: () => widget?.isDestroyed() ?? true,
-		isMinimized: () => widget?.isMinimized() ?? false,
-		isShowing: () => widget?.isShowing() ?? false,
-		minimize: () => widget?.minimize(),
-		show: () => widget?.show(),
-		update: (...args) => widget?.update(...args),
-		open: (...args) => {
-			if (!widget) createWidget(config);
-			widget?.open(...args);
-			events.onOpen?.(widget!);
+	l; // Create a stable reference to current widget instance
+	let currentWidgetRef: { current: CloudinaryUploadWidget | undefined } = {
+		current: undefined,
+	};
+
+	// Collect all event handlers into a single object for easier management
+	const events = $derived({
+		onError,
+		onOpen,
+		onAbort,
+		onBatchCancelled,
+		onClose,
+		onDisplayChanged,
+		onPublicId,
+		onQueuesEnd,
+		onQueuesStart,
+		onRetry,
+		onShowCompleted,
+		onSourceChanged,
+		onSuccess,
+		onTags,
+		onUploadAdded,
+		onUpload,
+	});
+
+	const instanceMethod = {
+		close: (...args: any[]) => currentWidgetRef.current?.close(...args),
+		destroy: async (...args: any[]) => {
+      if (currentWidgetRef.current && !isDestroyed) {
+        isDestroyed = true;
+        await currentWidgetRef.current?.destroy(...args);
+        currentWidgetRef.current = undefined;
+        widget = undefined;
+      }
+    },
+		hide: () => currentWidgetRef.current?.hide(),
+		isDestroyed: () => (isDestroyed || currentWidgetRef.current?.isDestroyed()) ?? true,
+		isMinimized: () => currentWidgetRef.current?.isMinimized() ?? false,
+		isShowing: () => currentWidgetRef.current?.isShowing() ?? false,
+		minimize: () => currentWidgetRef.current?.minimize(),
+		show: () => currentWidgetRef.current?.show(),
+		update: (...args: any[]) => currentWidgetRef.current?.update(...args),
+		open: (...args: any[]) => {
+			if (!currentWidgetRef.current || isDestroyed) {
+        createWidget(config);
+      } 
+			currentWidgetRef.current?.open(...args);
+      if (currentWidgetRef.current) {
+        events.onOpen?.(currentWidgetRef.current);
+      }
 		},
 	};
 
@@ -259,7 +340,10 @@
 	>;
 
 	function createWidget(config: $$Props['config']) {
-		if (widget) return;
+		// Always destroy previous widget before creating new one
+		if (currentWidgetRef.current && !isDestroyed) {
+			instanceMethods.destroy();
+		}
 
 		const cfg = mergeGlobalConfig(config);
 
@@ -277,8 +361,12 @@
 			cfg.config,
 		);
 
+    // Create callback with proper closure isolation
 		const callback = generateUploadWidgetResultCallback({
 			onError: (error) => {
+        // Only handle errors for THIS widget instance
+        if (isDestroyed) return;
+
 				const message = error
 					? typeof error == 'string'
 						? error
@@ -287,15 +375,18 @@
 
 				events.onError?.(message, {
 					...instanceMethods,
-					widget: widget!,
+					widget: currentWidgetRef.current!,
 				});
 			},
 			onResult: (results) => {
+        // Only handle results for THIS widget instance
+        if (isDestroyed || !currentWidgetRef.current) return;
+
 				if (typeof results?.event !== 'string') return;
 
 				const options: CldUploadWidgetGenericEventOptions = {
 					...instanceMethods,
-					widget: widget!,
+					widget: currentWidgetRef.current,
 				};
 
 				const handlerName = WIDGET_EVENTS[`${results.event}`];
@@ -323,16 +414,33 @@
 			},
 		});
 
-		widget = window.cloudinary?.createUploadWidget?.(
+    // Create widget and immediately assign to current reference
+    const newWidget = window.cloudinary?.createUploadWidget?.(
 			uploadOptions,
 			callback,
 		);
+
+    if (newWidget) {
+      currentWidgetRef.current = newWidget;
+      widget = newWidget;
+      isDestroyed = false;
+    }
 	}
 
-	$: if (loaded) {
-		instanceMethods.destroy();
-		createWidget(config);
-	}
+  // Svelte 5 effect to handle config changes
+  let previousConfig: typeof config;
+  $effect(() =>  {
+		if (loaded && JSON.stringify(config) !== JSON.stringify(previousConfig)) {
+			previousConfig = config;
+			if (currentWidgetRef.current) {
+				instanceMethods.destroy();
+				createWidget(config);
+			}
+		}
+	});
+
+  // Computed cloudinary value
+  let cloudinary = $derived((loaded && window.cloudinary) || null);
 
 	onMount(() => {
 		loadScript({
@@ -343,7 +451,7 @@
 			onError() {
 				events.onError?.('Unable to load script', {
 					...instanceMethods,
-					widget,
+					widget: currentWidgetRef.current
 				});
 			},
 		});
@@ -352,9 +460,11 @@
 	onDestroy(() => {
 		instanceMethods.destroy();
 	});
-
-	let cloudinary: typeof window.cloudinary | null = null;
-	$: cloudinary = (loaded && window.cloudinary) || null;
 </script>
 
-<slot {widget} {cloudinary} isLoading={!loaded} {...instanceMethods} />
+{@render children({
+  widget,
+  cloudinary,
+  isLoading: !loaded,
+  ...instanceMethods
+})}
